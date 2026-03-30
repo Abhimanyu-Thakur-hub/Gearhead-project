@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "The player's profile data including money and current day.",
+      "type": "object",
+      "properties": {
+        "money": {
+          "type": "number",
+          "description": "The amount of money the player has."
+        },
+        "day": {
+          "type": "number",
+          "description": "The current game day."
+        },
+        "lastMarketRefresh": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the marketplace was last refreshed."
+        }
+      },
+      "required": ["money", "day"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "A car or bike in the player's inventory or marketplace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "modelId": { "type": "string" },
+        "type": { "type": "string", "enum": ["car", "bike"] },
+        "name": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "condition": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "customization": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string" },
+            "installedParts": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "ownerId": { "type": "string", "description": "The UID of the player who owns this vehicle." },
+        "isMarketplace": { "type": "boolean", "description": "Whether this vehicle is currently in the marketplace." }
+      },
+      "required": ["modelId", "type", "name", "basePrice", "condition", "purchasePrice", "customization"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "The player's profile document."
+    },
+    "/users/{userId}/vehicles/{vehicleId}": {
+      "schema": "Vehicle",
+      "description": "The player's vehicle collection."
+    },
+    "/users/{userId}/marketplace/{vehicleId}": {
+      "schema": "Vehicle",
+      "description": "The player's current marketplace offerings."
+    }
+  }
+}

@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}
+    // Document ID: {userId}
+    // Fields:
+    //   - money: number (required) - The player's balance.
+    //   - day: number (required) - The current game day.
+    //   - lastMarketRefresh: string (optional) - ISO 8601 date string.
+    //
+    // Collection: /users/{userId}/vehicles/{vehicleId}
+    // Document ID: {vehicleId}
+    // Fields:
+    //   - modelId: string (required)
+    //   - type: string (required) - 'car' or 'bike'
+    //   - name: string (required)
+    //   - basePrice: number (required)
+    //   - condition: number (required)
+    //   - purchasePrice: number (required)
+    //   - customization: map (required)
+    //     - color: string
+    //     - installedParts: list
+    //
+    // Collection: /users/{userId}/marketplace/{vehicleId}
+    // Document ID: {vehicleId}
+    // Fields: Same as Vehicle
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "baviabhi.thakur@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasRequiredFields(['money', 'day']) &&
+             data.money is number && data.money >= 0 &&
+             data.day is number && data.day >= 1;
+    }
+
+    function isValidVehicle(data) {
+      return hasRequiredFields(['modelId', 'type', 'name', 'basePrice', 'condition', 'purchasePrice', 'customization']) &&
+             data.modelId is string &&
+             data.type in ['car', 'bike'] &&
+             data.name is string && data.name.size() < 100 &&
+             data.basePrice is number &&
+             data.condition is number && data.condition >= 0 && data.condition <= 1 &&
+             data.purchasePrice is number &&
+             data.customization is map &&
+             data.customization.color is string &&
+             data.customization.installedParts is list;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data)) || isAdmin();
+
+      match /vehicles/{vehicleId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidVehicle(request.resource.data);
+        allow update: if (isOwner(userId) && isValidVehicle(request.resource.data)) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      match /marketplace/{vehicleId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidVehicle(request.resource.data);
+        allow update: if (isOwner(userId) && isValidVehicle(request.resource.data)) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+  }
+}
